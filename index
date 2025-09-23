@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interaktive SDG Wheel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+  <style>
+	:root{
+	  --accent:#023d6b;
+	  --btn-bg:#ebebeb;
+	  --focus-yellow:#023d6b;
+	  --arrowH: clamp(18px, 4vmin, 48px);
+	  --arrowW: calc(var(--arrowH) * 0.6);
+	  --font-scale: 1.09; /* 1 = 16px, 1.125 = ~18px, 1.25 = 20px */
+	  font-size: calc(16px * var(--font-scale));
+	}
+
+
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #ffffff;
+      color: var(--accent);
+      margin: 0;
+      height: 100dvh; 
+      overflow: hidden;
+	  font-size: 1rem;
+    }
+
+    /* Layout */
+    #wheelWrapper {
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	  gap: 24px;
+	  min-height: calc(100dvh - 40px);
+	}
+
+	/* Mobile: oben ausgerichtet */
+	@media (max-width: 768px) {
+	  #wheelWrapper {
+		align-items: flex-start;
+		min-height: auto; 
+		margin-top: 20px;   
+	  }
+	}
+
+    /* Container rund ums Rad */
+    .wheel-stage {
+      position: relative;
+      display: inline-block;
+    }
+
+    canvas {
+      display: block;
+      margin-top: 20px;
+      border-radius: 12px;
+    }
+
+
+    #spinBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: clamp(88px, 22vw, 120px);
+      height: clamp(88px, 22vw, 120px);
+      border-radius: 50%;
+      border: none;
+      background-color: var(--btn-bg);
+      color: var(--accent);
+      font-size: clamp(16px, 5vw, 20px);
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+      transition: box-shadow 0.3s ease, transform 0.1s ease;
+      z-index: 3;
+    }
+
+    /* Hover + Tastaturfokus */
+    #spinBtn:hover,
+    #spinBtn:focus-visible {
+      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+      outline: none;
+    }
+
+    #spinBtn:active {
+      transform: translate(-50%, -50%) scale(0.95);
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    /* Overlay */
+    #questions {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 520px;
+      max-width: 92vw;
+      height: 92dvh;
+      background: var(--accent);
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+      color: white;
+      display: none; 
+      z-index: 1000;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    #imageContainer {
+      background-color: #e0f2ff;
+      flex: 1.2;
+      min-height: 36%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2px 0;
+      overflow: hidden;
+    }
+
+    #imageContainer img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    #questionsContent {
+      background: #ffffff;
+      flex: 3;
+      overflow-y: auto;
+      padding: 16px 18px 22px;
+      text-align: left;
+      color: #000;
+    }
+	
+    #questionsContent strong {
+	  font-size: 1.25rem;
+	  margin-bottom: 0.625rem;
+      display: block;
+      color: var(--accent);
+    }
+
+    .questionToggle {
+      font-weight: bold;
+      margin: 0.5rem 0 0.25rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.375rem 0.125rem;
+	font-size: 1rem;
+    }
+
+    .answersWrapper {
+      display: none;
+      margin-bottom: 4px;
+    }
+
+    .answer {
+      display: block;
+	  padding: 0.625rem 0.75rem;
+	  margin: 0.25rem 0 0.625rem;
+      background: #f5f5f5;
+      border-radius: 0;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      color: #000;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      outline: none;
+      border: none;
+      font-size: 1rem;
+    }
+    .answer:hover { background: #e9e9e9; }
+
+	/* Links in den Begründungen */
+	#questionsContent a {
+	  color: var(--accent);        
+	  text-decoration: underline;  
+	  font-weight: bold;          
+	}
+
+	#questionsContent a:hover,
+	#questionsContent a:focus {
+	  color: #01529b;             
+	  text-decoration: underline;  
+	}
+
+    .correct {
+      background: #28a745 !important;
+      color: #fff !important;
+      position: relative;
+      padding-right: 30px;
+    }
+    .correct::after {
+      content: "✔";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .incorrect {
+      background: #dc3545 !important;
+      color: #fff !important;
+      position: relative;
+      padding-right: 30px;
+    }
+    .incorrect::after {
+      content: "✘";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    #buttonRow {
+      background: #ffffff;
+      padding: 12px 16px 16px;
+      display: flex;
+      justify-content: center;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+
+    #buttonRow button {
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      color: white;
+      background-color: #dc3545;
+      transition: background-color 0.2s ease;
+    }
+    #closeBtn:hover { background-color: #a71d2a; }
+
+    /* sichtbarer Fokus NUR bei Tastatur-Nutzung */
+    .questionToggle:focus-visible,
+	.answer:focus-visible,
+	#closeBtn:focus-visible {
+	  outline: 3px solid #023d6b;
+	  outline-offset: 3px;
+	  border-radius: 6px;
+	}
+	#spinBtn:focus-visible {
+	  outline: none;
+	  box-shadow: 0 0 0 4px #023d6b;
+	}
+
+    /* Mobile Tweaks */
+    @media (max-width: 480px) {
+      #questionsContent { padding: 0.875rem; }
+      #questionsContent strong { font-size: 1.125rem; }
+      .questionToggle { font-size: 1rem; }
+      .answer { font-size: 1rem; padding: 0.625rem 0.75rem; }
+      #buttonRow button { width: 100%; font-size: 1.125rem; padding: 0.875rem 1.125rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+	
+	#arrow {
+	  width: 0;
+	  height: 0;
+	  border-left: var(--arrowW) solid transparent;
+	  border-right: var(--arrowW) solid transparent;
+	  border-top: var(--arrowH) solid var(--accent);
+	  position: absolute;
+	  left: 50%;
+	  transform: translateX(-50%);
+	  /* etwas Luft zum Rand + Safe-Area berücksichtigen */
+	  top: calc(-1 * var(--arrowH) + max(10px, env(safe-area-inset-top, 0px)));
+	  z-index: 2;
+	  pointer-events: none;
+	}
+
+	/* Sehr flache Landscape-Displays: mehr Luft + ggf. kleinere Pfeile */
+	@media (orientation: landscape) and (max-height: 500px) {
+	  :root {
+		--arrowH: clamp(16px, 5vmin, 36px);
+		--arrowW: calc(var(--arrowH) * 0.6);
+	  }
+	  #arrow {
+		top: calc(-1 * var(--arrowH) + max(14px, env(safe-area-inset-top, 0px)));
+	  }
+	}
+
+	/* Desktop kann so bleiben – optional fester, größerer Pfeil */
+	@media (min-width: 1024px) {
+	  :root { --arrowH: 48px; --arrowW: 30px; }
+	  #arrow { top: calc(-1 * var(--arrowH) + 12px); }
+	}
+ 
+	 @media (min-width: 1024px) {
+	  #spinBtn {
+		width: 140px;
+		height: 140px;
+		font-size: 22px;
+	  }
+	}
+
+	.visually-hidden {
+	  position: absolute !important;
+	  width: 1px; height: 1px;
+	  padding: 0; margin: -1px;
+	  overflow: hidden; clip: rect(0 0 0 0);
+	  white-space: nowrap; border: 0;
+	}
+
+
+  </style>
+</head>
+<body>
+
+  <div id="wheelWrapper">
+    <div class="wheel-stage">
+      <div id="arrow"></div>
+      <canvas id="wheelCanvas"></canvas>
+
+      <!-- Landmarke + zentraler Button -->
+      <nav aria-label="Skip to SDG Wheel">
+		<button id="spinBtn" aria-label="Spin the SDG Wheel">Spin</button>
+		</nav>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div id="questions" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"
+     aria-describedby="questionsContent">
+	<h2 id="dialogTitle" class="visually-hidden">Selected SDG</h2>
+    <div id="imageContainer">
+      <img id="resultImage" src="" alt="Selected SDG icon" />
+    </div>
+    <div id="questionsContent"></div>
+    <div id="buttonRow">
+      <button id="closeBtn" type="button" onclick="closeOverlay()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    /* ===== Segmente ===== */
+    const segments = [
+      // SDG 1
+      {
+        label: "No Poverty (SDG 1)",
+        color: "#e5243b",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-01.svg/@@images/image-1-d6ba0d886f4d16db46402a2d4e3594c0.svg",
+        imageBgColor: "#e5243b",
+        questions: [
+          {
+            text: "How is the OrganoRice project helping to combat poverty?",
+            answers: [
+              { text: "A) By developing genetically modified rice varieties for export", correct: false },
+              { text: "B) By switching to organic rice cultivation, focusing on environmental compatibility and economic prospects for farmers", correct: true },
+              { text: "C) Through state-funded rice subsidies without changing cultivation methods", correct: false }
+            ],
+            justification: `
+              <p>
+                <a href="https://www.fz-juelich.de/en/ibg/ibg-3/research-groups/environmental-processes-and-technologies/environmental-sensing-and-monitoring-1/organo-rice"
+				target="_blank" rel="noopener noreferrer">OrganoRice</a>
+                (IBG-3) analyses and supports the transition from conventional to ecological rice cultivation. The project considers pesticide reduction, water management, rice quality, and socioeconomic conditions with the goal of providing farmers with sustainable and economically viable prospects for the future, which will ultimately help to combat poverty.
+              </p>`
+          }
+        ]
+      },
+
+      // SDG 2
+      {
+        label: "Zero Hunger (SDG 2)",
+        color: "#DDA63A",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-02/@@images/image-1-fab128a80bf0c6aada6fc1fc1eaaf24f.svg",
+        imageBgColor: "#dda63a",
+        questions: [
+          {
+            text: "What crop is FZJ investigating to boost the earnings of small-scale farmers?",
+            answers: [
+              { text: "A) Quinoa", correct: false },
+              { text: "B) Maniok (Cassava)", correct: true },
+              { text: "C) Sweet potato", correct: false }
+            ],
+            justification: `
+			<p> as part of the
+			<a href= "https://www.fz-juelich.de/en/ibg/ibg-2/forschung/networks-und-partnerships/european-and-global/cassava-initiative"
+			target="_blank" rel="noopener noreferrer">Cassava Initiative</a>
+			IBG-2 is looking into manioc as an income-earning crop for small farmers. </p>`
+          }
+        ]
+      },
+
+      // SDG 3
+      {
+        label: "Good Health and Well-Being (SDG 3)",
+        color: "#4C9F38",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-03/@@images/image-1-2571a5f972c203c222b68189c9ec22b9.svg",
+        imageBgColor: "#4C9F38",
+        questions: [
+          {
+            text: "How does the EBRAINS project contribute to the promotion of health and well-being?",
+            answers: [
+              { text: "A) It provides citizens with direct access to brain scans for self-diagnosis.", correct: false },
+              { text: "B) It provides a digital infrastructure that accelerates research on the human brain with extensive data, simulations, and AI tools.", correct: true },
+              { text: "C) It develops drugs for the treatment of neurodegenerative diseases without clinical trials.", correct: false }
+            ],
+            justification: `
+			<p>
+			<a href="https://www.fz-juelich.de/en/research/research-fields/research-infrastructures/ebrains" target="_blank" rel="noopener noreferrer">EBRAINS</a>
+			(INM-1) is a digital research infrastructure that provides access to extensive brain data, a brain atlas, and simulation and AI tools, as well as supercomputers. It revolutionizes the neurosciences through interdisciplinary collaboration, open science, and new approaches that enable innovations in the long term in healthcare.</p>`
+          }
+        ]
+      },
+	  
+	  	  
+	  // SDG 4
+	   {
+        label: "Quality Education (SDG 4)",
+        color: "#C5192D",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-04/@@images/image-1-303cf60172c4cdf8143b7f0a07bac1eb.svg",
+        imageBgColor: "#C5192D",
+        questions: [
+          {
+            text: "How is FZJ promoting education for sustainable development?",
+            answers: [
+              { text: "A) It develops digital textbooks for international teaching.", correct: false },
+              { text: "B) It runs hands-on STEM programmes for school students, teachers, and families in JuLab.", correct: true },
+              { text: "C) It organizes a competition every year for apps designed by school students.", correct: false },
+            ],
+			justification: `
+			<p> 
+			<a href="https://www.fz-juelich.de/de/julab" target="_blank" rel="noopener noreferrer">JuLab</a> teaches STEM topics using practical formats, like experiment programmes, project courses, and training sessions. It targets diverse audiences and is guided by Education for Sustainable Development (ESD), aiming to empower young people for a sustainable future.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 5
+	  {
+        label: "Gender Equality (SDG 5)",
+        color: "#FF3A21",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-05-svg.svg/@@images/image-1-1bd538b35e921690f039896d8f83ef20.svg",
+        imageBgColor: "#FF3A21",
+        questions: [
+          {
+            text: "What measure is not among the five fields of action in the Gender Equality Plan at Forschungszentrum Jülich?",
+            answers: [
+              { text: "A) Promoting gender balance in leadership positions", correct: false },
+              { text: "B) Integrating the gender dimension in research and innovation", correct: false },
+              { text: "C) Introducing mandatory dress codes for all genders", correct: true },
+            ],
+			justification: `
+			<p>The 
+			<a href="https://www.fz-juelich.de/en/bfc/focus/gender-equity/gender-equality-plan" target="_blank" rel="noopener noreferrer">Gender Equality Plan</a> (BfC) at FZJ covers the following fields of action: reconciliation of work and family care, leadership positions, recruitment/career, gender aspects in research, and protection against sexualized violence – mandatory dress codes are not part of this.
+			</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 6
+	  {
+        label: "Clean Water and Sanitation (SDG 6)",
+        color: "#26BDE2",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-06-svg.svg/@@images/image-1-55905b81b03befe9b5f660bfc2a4bfc9.svg",
+        imageBgColor: "#26BDE2",
+        questions: [
+          {
+            text: "What is the dual benefit of the AlgaeFertilizerBox?",
+            answers: [
+              { text: "A) Production of drinking water and the generation of electricity from algae", correct: false },
+              { text: "B) Wastewater treatment and the simultaneous production of algae biomass for use as fertilizer", correct: true },
+              { text: "C) Seawater desalination and the export of algae as food", correct: false },
+            ],
+			justification: `
+			<p>The 
+			<a href="https://www.fz-juelich.de/de/ibg/ibg-2/forschung/ibg-2-projekte-1/projekte-national/innola__lgae_fertilizer_box" target="_blank" rel="noopener noreferrer">AlgaeFertilizerBox</a> (IBG-2) uses algae to treat lightly polluted wastewater from the agricultural and food industries. It produces clean water as well as valuable algae biomass for use as e.g. bio-based fertilizer – contributing to the regional circular economy and reducing environmental pollution.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 7
+	   {
+        label: "Affordable and Clean Energy (SDG 7)",
+        color: "#FCC30B",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-07-svg.svg/@@images/image-1-9b22a1c35f57bc68e72ec187b413e1a1.svg",
+        imageBgColor: "#FCC30B",
+        questions: [
+          {
+            text: "What is the goal of the “Multi-SOFC Erkelenz” project at the Hermann-Josef hospital?",
+            answers: [
+              { text: "A) Construction of a wind farm to supply the hospital", correct: false },
+              { text: "B) Use of fuel cells to provide energy, initially on the basis of natural gas and, in future, on the basis of hydrogen", correct: true },
+              { text: "C) Introduction of a solar emergency supply", correct: false },
+            ],
+			justification: `
+			<p>The project 
+			<a href="https://www.fz-juelich.de/en/inw/overview-inw-1/h2-demonstrationsvorhaben" target="_blank" rel="noopener noreferrer">HC-H2/INW</a> uses solid-oxide fuel cells (SOFCs) to provide electricity and heat in climate-smart manner. Operated initially with natural gas, the modules will be fuelled with green hydrogen using LOHC technology from 2026 onwards. The project aims to demonstrate that clean energy is possible in large buildings, such as hospitals.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 8
+	  {
+        label: "Decent Work and Economic Growth (SDG 8)",
+        color: "#A21942",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-08-svg.svg/@@images/image-1-22672915da61516939a952d844d63dc7.svg",
+        imageBgColor: "#A21942",
+        questions: [
+          {
+            text: "What was a central goal of the project to promote leadership culture at Forschungszentrum Jülich?",
+            answers: [
+              { text: "A) Introduction of a standardized salary system for all employees", correct: false },
+              { text: "B) Development of a leadership model for FZJ", correct: true },
+              { text: "C) Automation of all leadership tasks using AI systems", correct: false },
+            ],
+			justification: `
+			<p>The project
+			<a href="https://www.fz-juelich.de/en/careers/julich-as-an-employer/our-leadership-culture/leadership-in-transition" target="_blank" rel="noopener noreferrer">Leadership in Transition</a> (P-E) included the development of guiding principles and a leadership competency model with the aim of providing leaders at FZJ with more targeted support and strengthening them in their roles.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 9
+	  {
+        label: "Industry, Innovation and Infrastructure (SDG 9)",
+        color: "#fd6925",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-09-svg.svg/@@images/image-1-35d81639eda8fe71fa4d24377888965b.svg",
+        imageBgColor: "#fd6925",
+        questions: [
+          {
+            text: "What is the name of the living lab on campus where renewable energy sources and sector coupling are being tested in an integrated manner?",
+            answers: [
+              { text: "A) Living Lab Energy Campus (LLEC)", correct: true },
+              { text: "B) Solar tower Jülich", correct: false },
+              { text: "C) HI ERN", correct: false },
+            ],
+			justification: `
+			<p> The 
+			<a href="https://www.fz-juelich.de/en/llec_subsite" target="_blank" rel="noopener noreferrer">LLEC</a> is a living lab where diverse energy sources and storage technologies, such as hydrogen technologies, batteries, and photovoltaics, are being networked with each other and tested. The goal is to create energy systems that are more sustainable, economic, and comfortable to use.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 10
+	  {
+        label: "Reduced Inequalities (SDG 10)",
+        color: "#DD1367",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-10-svg.svg/@@images/image-1-c91d0800844c5032749584706a776f78.svg",
+        imageBgColor: "#DD1367",
+        questions: [
+          {
+            text: "What goal is not part of Forschungszentrum Jülich’s Diversity & Inclusion Action Plan?",
+            answers: [
+              { text: "A) Combatting discrimination", correct: false },
+              { text: "B) Promoting a culture of belonging", correct: true },
+              { text: "C) Introducing mandatory language tests for all employees", correct: true },
+            ],
+			justification: `
+			<p>The 
+			<a href="https://www.fz-juelich.de/en/about-us/mission/equal-opportunities/equity-diversity-inclusion" target="_blank" rel="noopener noreferrer">D&I Action Plan</a> (W/BfC) focuses on combatting all forms of discrimination, the promotion of a culture of belonging, more inclusive processes, the visibility of efforts, and inclusive leadership. Mandatory language tests are not part of the plan.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 11
+	  {
+        label: "Sustainable Cities and Communities (SDG 11)",
+        color: "#FD9D24",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-11-svg.svg/@@images/image-1-6f9d29d927ea4e26eebf2da49b9f9978.svg",
+        imageBgColor: "#FD9D24",
+        questions: [
+          {
+            text: "What makes the MobiLab measuring laboratory unique compared to conventional fixed measuring stations?",
+            answers: [
+              { text: "A) MobiLab measures episodically with very high time resolution (in the range of seconds).", correct: true },
+              { text: "B) MobiLab only collects long-term data over several years in hourly resolution.", correct: false },
+              { text: "C) MobiLab is designed exclusively for measuring noise levels in cities.", correct: false },
+            ],
+			justification: `
+			<p>In contrast to fixed measuring stations that provide data on an hourly basis, 
+			<a href="https://www.fz-juelich.de/en/ice/ice-3/scientific-infrastructure/measurement-platforms/mobilab" target="_blank" rel="noopener noreferrer">MobiLab</a> (ICE-3) provides data with a high time resolution of one second or better. This allows the subtle differences in the emission of pollutants like ozone, particulate matter, and methane to be detected and modelled.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 12
+	  {
+        label: "Responsible Consumption and Production (SDG 12)",
+        color: "#BF8B2E",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-12-svg.svg/@@images/image-1-780e033e9f784923b5672453cb673f78.svg",
+        imageBgColor: "#BF8B2E",
+        questions: [
+          {
+            text: "What is the goal of the BioökonomieREVIER project in the Rhenish mining area, particularly with respect to responsible consumption and production?",
+            answers: [
+              { text: "A) Construction of a new coal-based industrial park to supply the region", correct: false },
+              { text: "B) Export of regional products to global markets through intensive farming", correct: false },
+              { text: "C) Development of technological innovations for sustainable value creation", correct: true },
+            ],
+			justification: `
+			<p> 
+			<a href="https://www.fz-juelich.de/en/ibg/ibg-2/forschung/networks-und-partnerships/regional-and-national/biookonomierevier" target="_blank" rel="noopener noreferrer">BioökonomieREVIER</a> (IBG-2) develops technological innovations in its innovation laboratories, strives for circularity and resource efficiency, and networks regional stakeholders with the vision of establishing a model region for a sustainable and circular bioeconomy. It aims to change production and consumption patterns and make them more responsible.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 13
+	   {
+        label: "Climate Action (SDG 13)",
+        color: "#3F7E44",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-13-svg.svg/@@images/image-1-6ac7e70d7aef5134b5c232500017f404.svg",
+        imageBgColor: "#3F7E44",
+        questions: [
+          {
+            text: "How does the IAGOS project help to combat climate change?",
+            answers: [
+              { text: "A) Through the global monitoring of atmospheric trace gases and particles using passenger aircraft", correct: true },
+              { text: "B) Through satellite measurements of the Earth’s surface, analysing land use", correct: false },
+              { text: "C) By avoiding air travel and promoting sea travel for international research transport", correct: false },
+            ],
+			justification: `
+			<p>
+			<a href="https://www.fz-juelich.de/en/ice/ice-3/scientific-infrastructure/iagos" target="_blank" rel="noopener noreferrer">IAGOS</a> (ICE-3) uses commercial aircraft as measurement platforms to collect high-resolution data on trace gases, greenhouse gases, aerosols, and clouds in the upper troposphere and lower stratosphere – without creating additional CO₂ emissions. It supports climate models, improves climate predictions, and helps to assess global air quality.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 14
+	   {
+        label: "Life Below Water (SDG 14)",
+        color: "#0A97D9",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-14-svg.svg/@@images/image-1-72ced4f41dddf6c631fa4745fe8cd6b8.svg",
+        imageBgColor: "#0A97D9",
+        questions: [
+          {
+            text: "How does the Glaukos project help to reduce marine litter?",
+            answers: [
+              { text: "A) By developing biologically degradable and recyclable textiles", correct: true },
+              { text: "B) By collecting plastic litter from the surface of the ocean using drones", correct: false },
+              { text: "C) By installing underwater barriers to prevent the transport of waste", correct: false },
+            ],
+			justification: `
+			<p>The 
+			<a href="https://www.fz-juelich.de/en/ibg/ibg-1/news/announcements/glaukos_textiles" target="_blank" rel="noopener noreferrer">Glaukos-Projekt</a> (IBG-1) is rethinking the lifecycle of textiles. It develops biologically degradable eco-polymers to help reduce environmental pollution caused by plastic nets and man-made fibres in the ocean.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 15
+	   {
+        label: "Life On Land (SDG 15)",
+        color: "#56C02B",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-15-svg.svg/@@images/image-1-56359550c0d3538efeb8494bbd0950b3.svg",
+        imageBgColor: "#56C02B",
+        questions: [
+          {
+            text: "What is purpose of the water monitor (“Wasser-Monitor”) at Forschungszentrum Jülich?",
+            answers: [
+              { text: "A) To provide weather forecasts on the air quality in cities", correct: false },
+              { text: "B) To measure the sea level in coastal regions", correct: false },
+              { text: "C) To interactively display the amount of water available to plants in the soil", correct: true },
+            ],
+			justification: `
+			<p>The 
+			<a href="https://www.fz-juelich.de/en/ibg/ibg-3/expertise/transfer-innovation/transfer/water-monitor" target="_blank" rel="noopener noreferrer">Wasser-Monitor</a> (IBG-3) provides daily forecasts covering periods of up to nine days into the future detailing how much water is available to plants in the soil along with the respective uncertainties. The platform is particularly useful for farmers, providing information on available water and potential periods of drought.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 16
+	  {
+        label: "Peace, Justice and Strong Institutions (SDG 16)",
+        color: "#00689D",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-16-svg.svg/@@images/image-1-1c4901266f5efe1a701b24c78cb7a150.svg",
+        imageBgColor: "#00689D",
+        questions: [
+          {
+            text: "What is the main goal of the Science Bridges at Forschungszentrum Jülich?",
+            answers: [
+              { text: "A) Promotion of long-term science collaborations and technology transfer with partner countries", correct: true },
+              { text: "B) Creation of a new research centre based in Germany", correct: false },
+              { text: "C) Financing of political campaigns for peace negotiations", correct: false },
+            ],
+			justification: `
+			<p>
+			<a href="https://www.fz-juelich.de/en/about-us/mission/internationality/science-bridges-our-way-to-capacity-building" target="_blank" rel="noopener noreferrer">Science Bridges</a> (NIB) bring Jülich together with partner networks in emerging and developing countries. They encourage joint research, education, and sustainable technology transfer. Alumni play a key role as ambassadors building bridges.</p>`
+          },
+        ],
+      },
+	  
+	  // SDG 17
+	  {
+        label: "Partnerships for the Goals (SDG 17)",
+        color: "#19486A",
+        image: "https://www.fz-juelich.de/en/about-us/mission/sustainability/sdg-icon-en-17-svg.svg/@@images/image-1-084878184ac6747909010a2997dde46a.svg",
+        imageBgColor: "#19486A",
+        questions: [
+          {
+            text: "What is the central aim of the internationalization strategy of Forschungszentrum Jülich?",
+            answers: [
+              { text: "A) Reducing the number of international visiting scientists to below 500 per year", correct: false },
+              { text: "B) Expanding international partnerships and increasing the global visibility of Jülich research", correct: true },
+              { text: "C) Promoting exclusively European research collaborations", correct: false },
+            ],
+			justification: `
+			<p>The 
+			<a href="https://www.fz-juelich.de/en/ue/divisions/relations/internationalization-strategy" target="_blank" rel="noopener noreferrer">Internationalization@Jülich</a> (NIB) strategy aims to consolidate international collaborations and increase the global visibility of Forschungszentrum Jülich. Every year, some 1200 visiting scientists from over 79 countries come to FZJ to research.</p>`
+          },
+        ],
+      }
+    ];
+
+    /* ===== Setup & State ===== */
+    const canvas = document.getElementById("wheelCanvas");
+    const ctx = canvas.getContext("2d", { alpha: true });
+    const questionsOverlay = document.getElementById("questions");
+    const resultImage = document.getElementById("resultImage");
+    const questionsContent = document.getElementById("questionsContent");
+    const spinBtn = document.getElementById("spinBtn");
+
+    const BASE_OFFSET = -Math.PI / 2;
+    let radius = 320;
+    let lastIndex = -1;
+    let spinning = false;
+    let rotation = 0;
+
+    /* ===== Responsive Canvas ===== */
+    function sizeCanvas() {
+	  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+	  const maxSize = Math.min(window.innerWidth, window.innerHeight) * 0.9; 
+	  const sizeCss = Math.max(280, Math.min(maxSize, 700));
+
+	  // CSS-Größe quadratisch
+	  canvas.style.width = `${sizeCss}px`;
+	  canvas.style.height = `${sizeCss}px`;
+
+	  // interne Auflösung quadratisch
+	  canvas.width  = Math.round(sizeCss * dpr);
+	  canvas.height = Math.round(sizeCss * dpr);
+
+	  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+	  radius = (sizeCss / 2) - 20; 
+	  drawWheel(0);
+	}
+
+
+    window.addEventListener("resize", sizeCanvas);
+    window.addEventListener("orientationchange", sizeCanvas);
+
+    /* ===== Bilder vorladen, dann initial zeichnen ===== */
+    let loadedImages = 0;
+    segments.forEach((segment) => {
+      const img = new Image();
+      img.src = segment.image;
+      img.onload = () => {
+        segment.iconImg = img;
+        loadedImages++;
+        if (loadedImages === segments.length) {
+          sizeCanvas(); 
+        }
+      };
+    });
+
+    /* ===== Zeichnen ===== */
+    function drawWheel(rotationOffset = 0) {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const centerX = w / 2;
+      const centerY = h / 2;
+
+      const numSegments = segments.length;
+      const anglePerSegment = (2 * Math.PI) / numSegments;
+
+      for (let i = 0; i < numSegments; i++) {
+        const startAngle = i * anglePerSegment + BASE_OFFSET + rotationOffset;
+        const endAngle   = startAngle + anglePerSegment;
+
+        // Segment
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.fillStyle = segments[i].color;
+        ctx.fill();
+
+        // ---- ICONS ----
+		const icon = segments[i].iconImg;
+		if (icon) {
+		  const angle = startAngle + anglePerSegment / 2;
+
+		  // Position mittiger
+		  const ICON_RADIUS_FACTOR = 0.8; 
+		  const iconRadius = radius * ICON_RADIUS_FACTOR;
+
+		  let iconX = centerX + iconRadius * Math.cos(angle);
+		  let iconY = centerY + iconRadius * Math.sin(angle);
+
+		  // Obergrenze
+		  const MARGIN = 6; 
+		  const chord = 2 * Math.tan(anglePerSegment / 2) * Math.max(0, iconRadius - MARGIN);
+
+		  // Icon-Größe clampen
+		  const ICON_MIN = 48;
+		  const ICON_MAX = 110;
+		  const ICON_BY_RADIUS = radius * 0.28;
+		  const iconSize = Math.max(
+			ICON_MIN,
+			Math.min(ICON_MAX, ICON_BY_RADIUS, chord * 0.82) 
+		  );
+
+		  const r = Math.round(iconSize * 0.22); // Eckenradius
+		  const x = iconX - iconSize / 2;
+		  const y = iconY - iconSize / 2;
+
+		  // SEGMENT keilförmig clippen, dann runde Ecke
+		  ctx.save();
+		  // Keil-Clip
+		  ctx.beginPath();
+		  ctx.moveTo(centerX, centerY);
+		  ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+		  ctx.closePath();
+		  ctx.clip();
+
+		  // Runder Clip fürs Icon 
+		  ctx.save();
+		  ctx.beginPath();
+		  ctx.moveTo(x + r, y);
+		  ctx.lineTo(x + iconSize - r, y);
+		  ctx.quadraticCurveTo(x + iconSize, y, x + iconSize, y + r);
+		  ctx.lineTo(x + iconSize, y + iconSize - r);
+		  ctx.quadraticCurveTo(x + iconSize, y + iconSize, x + iconSize - r, y + iconSize);
+		  ctx.lineTo(x + r, y + iconSize);
+		  ctx.quadraticCurveTo(x, y + iconSize, x, y + iconSize - r);
+		  ctx.lineTo(x, y + r);
+		  ctx.quadraticCurveTo(x, y, x + r, y);
+		  ctx.closePath();
+		  ctx.clip();
+
+		  // Bild zeichnen
+		  ctx.drawImage(icon, x, y, iconSize, iconSize);
+
+		  ctx.restore(); // runder Clip
+		  ctx.restore(); // Keil-Clip
+		}
+
+      }
+    }
+
+    /* ===== Spin starten ===== */
+    function startSpin() {
+      if (spinning) return;
+      spinning = true;
+      resultImage.src = "";
+
+      const spinAngle = Math.random() * 10 + 20;
+      const spinDuration = 3000;
+      const startTime = performance.now();
+      let currentRotation = 0;
+
+      function animate(time) {
+        const elapsed = time - startTime;
+        if (elapsed < spinDuration) {
+          const easeOut = 1 - Math.pow(1 - elapsed / spinDuration, 3);
+          currentRotation = spinAngle * easeOut * 2 * Math.PI;
+          drawWheel(currentRotation);
+          requestAnimationFrame(animate);
+        } else {
+          rotation = currentRotation % (2 * Math.PI);
+          drawWheel(rotation);
+          spinning = false;
+
+          // Auswahl bestimmen
+          const numSegments = segments.length;
+          const anglePerSegment = (2 * Math.PI) / numSegments;
+          let selectedIndex = Math.floor(((2 * Math.PI) - rotation + anglePerSegment / 2) / anglePerSegment) % numSegments;
+          if (selectedIndex === lastIndex) selectedIndex = (selectedIndex + 1) % numSegments;
+          lastIndex = selectedIndex;
+          showResult(selectedIndex);
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    /* ===== Interaktionen: Canvas + Button + Touch ===== */
+    canvas.addEventListener("click", () => { if (!spinning) startSpin(); });
+    canvas.addEventListener("touchend", (e) => { e.preventDefault(); if (!spinning) startSpin(); }, { passive: false });
+
+    spinBtn.addEventListener("click", () => { if (!spinning) startSpin(); });
+    spinBtn.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " " || e.code === "Space") && !spinning) {
+        e.preventDefault();
+        startSpin();
+      }
+    });
+    spinBtn.addEventListener("touchend", (e) => { e.preventDefault(); if (!spinning) startSpin(); }, { passive: false });
+
+   
+    function handleKeydown(e, segIdx, qIdx) {
+      if (e.key === "Enter" || e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        toggleAnswers(segIdx, qIdx);
+      }
+    }
+
+    function showResult(index) {
+      const segment = segments[index];
+	  
+		document.getElementById("dialogTitle").textContent = segment.label;
+		resultImage.alt = `${segment.label} icon`; // dynamischer Alt-Text
+		
+      resultImage.src = segment.image;
+      document.getElementById("imageContainer").style.backgroundColor = segment.imageBgColor || "#e0f2ff";
+
+      let html = `<strong>${segment.label}</strong>`;
+      segment.questions.forEach((q, i) => {
+        // Frage Toggle
+        html += `<div 
+          class="questionToggle" 
+          id="toggle-${index}-${i}"
+          role="button" 
+          tabindex="0"
+          aria-controls="answers-${index}-${i}"
+          aria-expanded="${i === 0 ? "true" : "false"}"
+          onkeydown="handleKeydown(event, ${index}, ${i})">
+          ${q.text}
+        </div>`;
+
+        // Antworten
+        html += `<div class="answersWrapper"
+		  id="answers-${index}-${i}"
+		  aria-labelledby="toggle-${index}-${i}"
+		  aria-hidden="${i === 0 ? "false" : "true"}"
+		  style="display:${i === 0 ? "block" : "none"};">`;
+
+        q.answers.forEach((a, ai) => {
+          const id = `answer-${index}-${i}-${ai}`;
+          html += `<button class="answer" type="button" id="${id}" onclick="checkAnswer('${id}', ${a.correct})">${a.text}</button>`;
+        });
+        html += `</div>`;
+      });
+
+      questionsContent.innerHTML = html;
+      questionsOverlay.style.display = "flex";
+      questionsOverlay.focus();
+
+      // Click-Handler für alle Toggles (Maus)
+      document.querySelectorAll(`.questionToggle[id^="toggle-${index}-"]`).forEach((toggleEl) => {
+        const parts = toggleEl.id.split("-");
+        const qIdx = Number(parts[2]);
+        toggleEl.addEventListener("click", () => toggleAnswers(index, qIdx));
+      });
+
+      // Fokus auf erste Antwort
+      setTimeout(() => {
+        const firstAnswer = document.querySelector(".answersWrapper .answer");
+		if (firstAnswer) firstAnswer.focus();
+      }, 0);
+    }
+
+    function toggleAnswers(segIdx, qIdx) {
+      const wrapper = document.getElementById(`answers-${segIdx}-${qIdx}`);
+      const toggle  = document.getElementById(`toggle-${segIdx}-${qIdx}`);
+      if (!wrapper || !toggle) return;
+
+      const isOpen = wrapper.style.display === "block";
+
+      if (isOpen) {
+        // schließen
+        wrapper.style.display = "none";
+        wrapper.setAttribute("aria-hidden", "true");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.focus(); // Fokus zurück auf Frage
+      } else {
+        // öffnen
+        wrapper.style.display = "block";
+        wrapper.setAttribute("aria-hidden", "false");
+        toggle.setAttribute("aria-expanded", "true");
+        const firstAnswer = wrapper.querySelector(".answer");
+        if (firstAnswer) firstAnswer.focus(); // Fokus erste Antwort
+      }
+    }
+
+    function checkAnswer(id, isCorrect) {
+      const el = document.getElementById(id);
+      if (!el || el.classList.contains("correct") || el.classList.contains("incorrect")) return;
+
+      if (isCorrect) {
+        el.classList.add("correct");
+        const [, segIdx, qIdx] = id.split("-");
+        const question = segments[segIdx].questions[qIdx];
+        if (question.justification) {
+          const justificationElem = document.createElement("div");
+          justificationElem.style.marginTop = "10px";
+          justificationElem.style.padding = "10px";
+          justificationElem.style.backgroundColor = "#e6f6ec";
+          justificationElem.style.borderLeft = "4px solid #28a745";
+          justificationElem.style.color = "#000";
+          justificationElem.innerHTML = question.justification;
+          el.insertAdjacentElement("afterend", justificationElem);
+        }
+      } else {
+        el.classList.add("incorrect");
+      }
+    }
+
+    function closeOverlay() {
+      questionsOverlay.style.display = "none";
+      drawWheel(0);
+	  spinBtn.focus();
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && questionsOverlay.style.display === "flex") {
+        closeOverlay();
+      }
+    });
+  </script>
+</body>
+</html>
